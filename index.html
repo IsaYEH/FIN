@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Public Market Data UI</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/date-fns@3.6.0"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0"></script>
+</head>
+<body class="bg-slate-50 text-slate-900">
+  <div class="max-w-6xl mx-auto p-4 md:p-8">
+    <header class="mb-6">
+      <h1 class="text-2xl md:text-3xl font-semibold">Public Market Data UI</h1>
+      <p class="text-sm text-slate-600">查詢台股/美股日線、股利、基本資訊（以你的 Render API 為後端）</p>
+    </header>
+
+    <section class="mb-4 grid md:grid-cols-2 gap-3">
+      <label class="block">
+        <span class="text-sm font-medium">API Base URL</span>
+        <input id="apiBase" class="mt-1 w-full rounded-xl border border-slate-300 p-2" value="https://fin-rhwp.onrender.com" />
+      </label>
+      <label class="block">
+        <span class="text-sm font-medium">股票代號（如 2330.TW / AAPL）</span>
+        <input id="symbol" class="mt-1 w-full rounded-xl border border-slate-300 p-2" value="2330.TW" />
+      </label>
+      <label class="block">
+        <span class="text-sm font-medium">Start</span>
+        <input id="start" type="date" class="mt-1 w-full rounded-xl border border-slate-300 p-2" />
+      </label>
+      <label class="block">
+        <span class="text-sm font-medium">End</span>
+        <input id="end" type="date" class="mt-1 w-full rounded-xl border border-slate-300 p-2" />
+      </label>
+    </section>
+
+    <div class="flex items-center gap-3 mb-6">
+      <button id="btnFetch" class="rounded-xl bg-blue-600 text-white px-4 py-2 hover:bg-blue-700 transition">查詢</button>
+      <button id="btnTW" class="rounded-xl bg-slate-200 text-slate-800 px-3 py-2 hover:bg-slate-300 transition">ETF_TW 範例</button>
+      <button id="btnUS" class="rounded-xl bg-slate-200 text-slate-800 px-3 py-2 hover:bg-slate-300 transition">ETF_US 範例</button>
+      <label class="flex items-center gap-2 ml-2 text-sm">
+        <input id="useAdj" type="checkbox" class="h-4 w-4" checked>
+        使用 adj_close 繪圖
+      </label>
+      <span id="status" class="text-sm text-slate-600"></span>
+    </div>
+
+    <section class="grid lg:grid-cols-3 gap-6">
+      <div class="lg:col-span-2 rounded-2xl bg-white p-4 shadow-sm border border-slate-200">
+        <h2 class="font-medium mb-2">價格走勢</h2>
+        <canvas id="priceChart" height="140"></canvas>
+      </div>
+
+      <div class="rounded-2xl bg-white p-4 shadow-sm border border-slate-200">
+        <h2 class="font-medium mb-2">基本資訊</h2>
+        <dl id="infoBox" class="text-sm grid grid-cols-3 gap-2">
+          <dt class="text-slate-500">名稱</dt><dd id="longName" class="col-span-2">—</dd>
+          <dt class="text-slate-500">代號</dt><dd id="sym" class="col-span-2">—</dd>
+          <dt class="text-slate-500">交易所</dt><dd id="exchange" class="col-span-2">—</dd>
+          <dt class="text-slate-500">幣別</dt><dd id="currency" class="col-span-2">—</dd>
+          <dt class="text-slate-500">市值</dt><dd id="marketCap" class="col-span-2">—</dd>
+          <dt class="text-slate-500">產業</dt><dd id="industry" class="col-span-2">—</dd>
+          <dt class="text-slate-500">部門</dt><dd id="sector" class="col-span-2">—</dd>
+        </dl>
+      </div>
+    </section>
+
+    <section class="mt-6 rounded-2xl bg-white p-4 shadow-sm border border-slate-200">
+      <h2 class="font-medium mb-3">股利紀錄</h2>
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead class="bg-slate-100">
+            <tr>
+              <th class="text-left px-3 py-2">日期</th>
+              <th class="text-left px-3 py-2">現金股利</th>
+            </tr>
+          </thead>
+          <tbody id="divTable"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <footer class="mt-8 text-xs text-slate-500">
+      UI 以 Chart.js + Tailwind 製作。資料來源：你的 Render API（後端整合 Yahoo 公開介面）。
+    </footer>
+  </div>
+
+<script>
+const $ = (q)=>document.querySelector(q);
+
+function fmtCap(n){
+  if(!n && n!==0) return "—";
+  const units=[["兆",1e12],["億",1e8],["萬",1e4]];
+  for(const [label, val] of units){
+    if(n>=val) return (n/val).toFixed(2)+label;
+  }
+  return new Intl.NumberFormat().format(n);
+}
+
+function todayStr(){
+  const t=new Date(); const m=("0"+(t.getMonth()+1)).slice(-2); const d=("0"+t.getDate()).slice(-2);
+  return `${t.getFullYear()}-${m}-${d}`;
+}
+
+function setDefaults(){
+  $("#start").value = "2020-01-01";
+  $("#end").value = todayStr();
+}
+
+let chart;
+
+async function fetchJSON(url){
+  const r = await fetch(url);
+  if(!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+  return await r.json();
+}
+
+async function loadInfo(base, symbol){
+  try{
+    const info = await fetchJSON(`${base}/api/public/info?symbol=${encodeURIComponent(symbol)}`);
+    $("#longName").textContent = info.longName || "—";
+    $("#sym").textContent = info.symbol || symbol;
+    $("#exchange").textContent = info.exchange || "—";
+    $("#currency").textContent = info.currency || "—";
+    $("#marketCap").textContent = fmtCap(info.marketCap);
+    $("#industry").textContent = info.industry || "—";
+    $("#sector").textContent = info.sector || "—";
+  }catch(e){
+    console.error(e);
+  }
+}
+
+async function loadDividends(base, symbol, start, end){
+  const divBox = $("#divTable");
+  divBox.innerHTML = "";
+  try{
+    const rows = await fetchJSON(`${base}/api/public/dividends?symbol=${encodeURIComponent(symbol)}&start=${start}&end=${end}`);
+    if(!rows.length){
+      divBox.innerHTML = `<tr><td class="px-3 py-2" colspan="2">無資料</td></tr>`;
+      return;
+    }
+    divBox.innerHTML = rows.map(r=>`<tr class="border-b border-slate-100">
+      <td class="px-3 py-2">${r.date}</td>
+      <td class="px-3 py-2">${r.cash}</td>
+    </tr>`).join("");
+  }catch(e){
+    divBox.innerHTML = `<tr><td class="px-3 py-2 text-red-600" colspan="2">${e.message}</td></tr>`;
+  }
+}
+
+async function loadOHLCV(base, symbol, start, end, useAdj){
+  const url = `${base}/api/public/ohlcv?symbol=${encodeURIComponent(symbol)}&start=${start}&end=${end}&limit=20000`;
+  const data = await fetchJSON(url);
+  const points = data.filter(x=>x.date && (useAdj ? x.adj_close!=null : x.close!=null))
+                     .map(x=>({x:new Date(x.date), y: useAdj ? x.adj_close : x.close }));
+  if(!chart){
+    const ctx = document.getElementById("priceChart").getContext("2d");
+    chart = new Chart(ctx, {
+      type: "line",
+      data: { datasets: [{ label: symbol, data: points, tension: 0.2, pointRadius: 0 }] },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: { type: "time", time: { unit: "month" } },
+          y: { beginAtZero: false }
+        },
+        plugins: { legend: { display: true } }
+      }
+    });
+  }else{
+    chart.data.datasets = [{ label: symbol, data: points, tension: 0.2, pointRadius: 0 }];
+    chart.update();
+  }
+}
+
+async function run(){
+  const base = $("#apiBase").value.trim().replace(/\/$/,"");
+  const symbol = $("#symbol").value.trim();
+  const start = $("#start").value;
+  const end = $("#end").value;
+  const useAdj = $("#useAdj").checked;
+
+  $("#status").textContent = "Loading...";
+  try{
+    await Promise.all([
+      loadOHLCV(base, symbol, start, end, useAdj),
+      loadDividends(base, symbol, start, end),
+      loadInfo(base, symbol)
+    ]);
+    $("#status").textContent = "OK";
+  }catch(e){
+    console.error(e);
+    $("#status").textContent = "Error: " + e.message;
+    alert("發生錯誤：" + e.message);
+  }
+}
+
+async function loadUniverse(market){
+  const base = $("#apiBase").value.trim().replace(/\/$/,"");
+  try{
+    const js = await fetchJSON(`${base}/api/public/universe?market=${encodeURIComponent(market)}`);
+    if(js.symbols && js.symbols.length){
+      $("#symbol").value = js.symbols[0];
+      run();
+    }
+  }catch(e){
+    console.error(e);
+  }
+}
+
+document.addEventListener("DOMContentLoaded", ()=>{
+  setDefaults();
+  $("#btnFetch").addEventListener("click", run);
+  $("#btnTW").addEventListener("click", ()=>loadUniverse("ETF_TW"));
+  $("#btnUS").addEventListener("click", ()=>loadUniverse("ETF_US"));
+});
+</script>
+</body>
+</html>
