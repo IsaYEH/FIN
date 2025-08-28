@@ -1,27 +1,11 @@
-"""
-main.py
-Entry point for the public data API service. This script sets up
-a FastAPI application, adds CORS middleware for cross-origin
-requests, and includes the router from ``public_api.py``. To run
-this service locally, execute:
-
-    uvicorn main:app --host 0.0.0.0 --port 8000
-
-Alternatively, use Docker or Docker Compose with a corresponding
-``Dockerfile``. The service exposes endpoints under
-``/api/public`` for open stock market data.
-"""
-
+from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from public_api import router as public_router
 
-from .public_api import router as public_router
+app = FastAPI(title="Public Market Data API", version="0.3.0")
 
-
-app = FastAPI(title="Public Market Data API", version="1.0.0")
-
-# Allow all origins, methods, and headers. For production, restrict
-# this configuration to trusted clients.
+# CORS：私用可開放 *；若要限制，改成你的前端網域白名單
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -30,12 +14,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 @app.get("/health")
-def health_check():
-    """Simple health endpoint returning a static response."""
+def health():
     return {"ok": True}
 
-
-# Include the public data router under the /api/public prefix
+# 掛上公開資料路由
 app.include_router(public_router)
+
+# 本機開發用：Render 不會走到這段
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
