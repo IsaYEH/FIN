@@ -8,15 +8,13 @@ from cachetools import TTLCache
 from datetime import datetime
 
 router = APIRouter(prefix="/api/public", tags=["public-data"])
-
-# 記憶體快取：最多 256 筆，保留 10 分鐘
 cache = TTLCache(maxsize=256, ttl=600)
 
 def _symbol_norm(symbol: str) -> str:
     s = symbol.strip().upper()
     if s.endswith(".TW") or s.endswith(".TWO"):
         return s
-    if s[:1].isdigit():  # 台股數字代號自動補 .TW
+    if s[:1].isdigit():
         return f"{s}.TW"
     return s
 
@@ -48,16 +46,12 @@ class InfoResp(BaseModel):
 
 @router.get("/ohlcv", response_model=List[OHLCVResp])
 def get_ohlcv(
-    symbol: str = Query(..., description="股票代號，如 2330.TW / AAPL"),
+    symbol: str = Query(..., description="e.g. 2330.TW / AAPL"),
     start: str = Query("2018-01-01"),
     end: str = Query(datetime.utcnow().strftime("%Y-%m-%d")),
     limit: int = Query(5000, ge=1, le=20000),
     offset: int = Query(0, ge=0),
 ):
-    """
-    取得日 OHLCV（含調整收盤）。支援台股/美股。
-    - 分頁參數：offset, limit
-    """
     sym = _symbol_norm(symbol)
     key = ("ohlcv", sym, start, end)
     df = cache.get(key)
@@ -83,7 +77,6 @@ def get_dividends(
     start: str = Query("2018-01-01"),
     end: str = Query(datetime.utcnow().strftime("%Y-%m-%d")),
 ):
-    """取得現金股利時序（來源：yfinance）"""
     sym = _symbol_norm(symbol)
     key = ("div", sym, start, end)
     df = cache.get(key)
@@ -106,7 +99,6 @@ def get_splits(
     start: str = Query("2010-01-01"),
     end: str = Query(datetime.utcnow().strftime("%Y-%m-%d")),
 ):
-    """取得拆股（split）紀錄"""
     sym = _symbol_norm(symbol)
     key = ("split", sym, start, end)
     df = cache.get(key)
@@ -125,7 +117,6 @@ def get_splits(
 
 @router.get("/info", response_model=InfoResp)
 def get_info(symbol: str = Query(...)):
-    """取得基本資訊（名稱、幣別、交易所、市值、產業…）"""
     sym = _symbol_norm(symbol)
     key = ("info", sym)
     info = cache.get(key)
@@ -150,5 +141,4 @@ COMMON = {
 
 @router.get("/universe")
 def get_universe(market: str = Query("ETF_TW")):
-    """常用標的清單（示例）"""
     return {"market": market, "symbols": COMMON.get(market.upper(), [])}
