@@ -1,76 +1,103 @@
 <!doctype html>
-<html lang="zh-Hant">
+<html lang="zh-Hant" class="h-full">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Public Market Data UI</title>
+  <title>Market UI Pro</title>
+  <script>
+    // Tailwind dark mode via class
+    if(localStorage.getItem('theme') === 'dark'){
+      document.documentElement.classList.add('dark');
+    }
+  </script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/date-fns@3.6.0"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0"></script>
+  <style>
+    :root { color-scheme: light dark; }
+    .card { @apply rounded-2xl border shadow-sm p-4 bg-white border-slate-200 dark:bg-slate-900 dark:border-slate-700; }
+    .label { @apply text-sm font-medium text-slate-700 dark:text-slate-200; }
+    .input { @apply mt-1 w-full rounded-xl border border-slate-300 p-2 bg-white text-slate-900 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100; }
+    .btn { @apply rounded-xl px-4 py-2 transition; }
+    .btn-primary { @apply bg-blue-600 text-white hover:bg-blue-700; }
+    .btn-ghost { @apply bg-slate-200 text-slate-800 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-100 dark:hover:bg-slate-600; }
+    .muted { @apply text-sm text-slate-600 dark:text-slate-400; }
+  </style>
 </head>
-<body class="bg-slate-50 text-slate-900">
-  <div class="max-w-6xl mx-auto p-4 md:p-8">
-    <header class="mb-6">
-      <h1 class="text-2xl md:text-3xl font-semibold">Public Market Data UI</h1>
-      <p class="text-sm text-slate-600">查詢台股/美股日線、股利、基本資訊（以你的 Render API 為後端）</p>
+<body class="h-full bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+  <div class="max-w-7xl mx-auto p-4 md:p-8 space-y-6">
+    <header class="flex items-center justify-between">
+      <div>
+        <h1 class="text-2xl md:text-3xl font-semibold">Market UI Pro</h1>
+        <p class="muted">多檔疊圖｜股利標記｜暗色模式｜Render API 後端</p>
+      </div>
+      <button id="toggleTheme" class="btn btn-ghost" title="切換深色/淺色">🌓</button>
     </header>
 
-    <section class="mb-4 grid md:grid-cols-2 gap-3">
+    <section class="grid md:grid-cols-2 lg:grid-cols-4 gap-3">
       <label class="block">
-        <span class="text-sm font-medium">API Base URL</span>
-        <input id="apiBase" class="mt-1 w-full rounded-xl border border-slate-300 p-2" value="https://fin-rhwp.onrender.com" />
+        <span class="label">API Base URL</span>
+        <input id="apiBase" class="input" value="https://fin-rhwp.onrender.com" />
       </label>
-      <label class="block">
-        <span class="text-sm font-medium">股票代號（如 2330.TW / AAPL）</span>
-        <input id="symbol" class="mt-1 w-full rounded-xl border border-slate-300 p-2" value="2330.TW" />
+      <label class="block lg:col-span-2">
+        <span class="label">股票代號（逗號分隔：2330.TW,AAPL,SPY）</span>
+        <input id="symbols" class="input" value="2330.TW,AAPL" />
       </label>
-      <label class="block">
-        <span class="text-sm font-medium">Start</span>
-        <input id="start" type="date" class="mt-1 w-full rounded-xl border border-slate-300 p-2" />
-      </label>
-      <label class="block">
-        <span class="text-sm font-medium">End</span>
-        <input id="end" type="date" class="mt-1 w-full rounded-xl border border-slate-300 p-2" />
-      </label>
+      <div class="flex items-end gap-2">
+        <label class="block flex-1">
+          <span class="label">Start</span>
+          <input id="start" type="date" class="input" />
+        </label>
+        <label class="block flex-1">
+          <span class="label">End</span>
+          <input id="end" type="date" class="input" />
+        </label>
+      </div>
+      <div class="flex items-end gap-3 lg:col-span-4">
+        <button id="btnFetch" class="btn btn-primary">查詢</button>
+        <button id="btnTW" class="btn btn-ghost">ETF_TW 範例</button>
+        <button id="btnUS" class="btn btn-ghost">ETF_US 範例</button>
+        <label class="flex items-center gap-2 ml-2 text-sm">
+          <input id="useAdj" type="checkbox" class="h-4 w-4" checked>
+          使用 adj_close 繪圖
+        </label>
+        <label class="flex items-center gap-2 ml-2 text-sm">
+          <input id="showDiv" type="checkbox" class="h-4 w-4" checked>
+          顯示股利標記
+        </label>
+        <span id="status" class="muted"></span>
+      </div>
     </section>
 
-    <div class="flex items-center gap-3 mb-6">
-      <button id="btnFetch" class="rounded-xl bg-blue-600 text-white px-4 py-2 hover:bg-blue-700 transition">查詢</button>
-      <button id="btnTW" class="rounded-xl bg-slate-200 text-slate-800 px-3 py-2 hover:bg-slate-300 transition">ETF_TW 範例</button>
-      <button id="btnUS" class="rounded-xl bg-slate-200 text-slate-800 px-3 py-2 hover:bg-slate-300 transition">ETF_US 範例</button>
-      <label class="flex items-center gap-2 ml-2 text-sm">
-        <input id="useAdj" type="checkbox" class="h-4 w-4" checked>
-        使用 adj_close 繪圖
-      </label>
-      <span id="status" class="text-sm text-slate-600"></span>
-    </div>
-
     <section class="grid lg:grid-cols-3 gap-6">
-      <div class="lg:col-span-2 rounded-2xl bg-white p-4 shadow-sm border border-slate-200">
-        <h2 class="font-medium mb-2">價格走勢</h2>
-        <canvas id="priceChart" height="140"></canvas>
+      <div class="lg:col-span-2 card">
+        <div class="flex items-center justify-between mb-2">
+          <h2 class="font-medium">價格疊圖</h2>
+          <span class="muted text-xs">支援多檔 & adj_close</span>
+        </div>
+        <div class="h-[420px]"><canvas id="priceChart" height="380"></canvas></div>
       </div>
 
-      <div class="rounded-2xl bg-white p-4 shadow-sm border border-slate-200">
-        <h2 class="font-medium mb-2">基本資訊</h2>
+      <div class="card">
+        <h2 class="font-medium mb-2">基本資訊（第一檔）</h2>
         <dl id="infoBox" class="text-sm grid grid-cols-3 gap-2">
-          <dt class="text-slate-500">名稱</dt><dd id="longName" class="col-span-2">—</dd>
-          <dt class="text-slate-500">代號</dt><dd id="sym" class="col-span-2">—</dd>
-          <dt class="text-slate-500">交易所</dt><dd id="exchange" class="col-span-2">—</dd>
-          <dt class="text-slate-500">幣別</dt><dd id="currency" class="col-span-2">—</dd>
-          <dt class="text-slate-500">市值</dt><dd id="marketCap" class="col-span-2">—</dd>
-          <dt class="text-slate-500">產業</dt><dd id="industry" class="col-span-2">—</dd>
-          <dt class="text-slate-500">部門</dt><dd id="sector" class="col-span-2">—</dd>
+          <dt class="muted">名稱</dt><dd id="longName" class="col-span-2">—</dd>
+          <dt class="muted">代號</dt><dd id="sym" class="col-span-2">—</dd>
+          <dt class="muted">交易所</dt><dd id="exchange" class="col-span-2">—</dd>
+          <dt class="muted">幣別</dt><dd id="currency" class="col-span-2">—</dd>
+          <dt class="muted">市值</dt><dd id="marketCap" class="col-span-2">—</dd>
+          <dt class="muted">產業</dt><dd id="industry" class="col-span-2">—</dd>
+          <dt class="muted">部門</dt><dd id="sector" class="col-span-2">—</dd>
         </dl>
       </div>
     </section>
 
-    <section class="mt-6 rounded-2xl bg-white p-4 shadow-sm border border-slate-200">
-      <h2 class="font-medium mb-3">股利紀錄</h2>
+    <section class="card">
+      <h2 class="font-medium mb-3">股利紀錄（第一檔）</h2>
       <div class="overflow-x-auto">
         <table class="min-w-full text-sm">
-          <thead class="bg-slate-100">
+          <thead class="bg-slate-100 dark:bg-slate-800">
             <tr>
               <th class="text-left px-3 py-2">日期</th>
               <th class="text-left px-3 py-2">現金股利</th>
@@ -81,34 +108,34 @@
       </div>
     </section>
 
-    <footer class="mt-8 text-xs text-slate-500">
-      UI 以 Chart.js + Tailwind 製作。資料來源：你的 Render API（後端整合 Yahoo 公開介面）。
+    <footer class="muted">
+      建置時間：<span id="builtAt"></span> ｜ Chart.js + Tailwind ｜ 後端：你的 Render API
     </footer>
   </div>
 
 <script>
 const $ = (q)=>document.querySelector(q);
+const palette = [
+  "#2563eb","#16a34a","#f59e0b","#ef4444","#8b5cf6",
+  "#0ea5e9","#22c55e","#eab308","#f97316","#ec4899"
+];
 
 function fmtCap(n){
   if(!n && n!==0) return "—";
-  const units=[["兆",1e12],["億",1e8],["萬",1e4]];
+  const units=[["T",1e12],["B",1e9],["M",1e6]];
   for(const [label, val] of units){
     if(n>=val) return (n/val).toFixed(2)+label;
   }
   return new Intl.NumberFormat().format(n);
 }
-
 function todayStr(){
   const t=new Date(); const m=("0"+(t.getMonth()+1)).slice(-2); const d=("0"+t.getDate()).slice(-2);
   return `${t.getFullYear()}-${m}-${d}`;
 }
-
 function setDefaults(){
   $("#start").value = "2020-01-01";
   $("#end").value = todayStr();
 }
-
-let chart;
 
 async function fetchJSON(url){
   const r = await fetch(url);
@@ -126,9 +153,7 @@ async function loadInfo(base, symbol){
     $("#marketCap").textContent = fmtCap(info.marketCap);
     $("#industry").textContent = info.industry || "—";
     $("#sector").textContent = info.sector || "—";
-  }catch(e){
-    console.error(e);
-  }
+  }catch(e){ console.error(e); }
 }
 
 async function loadDividends(base, symbol, start, end){
@@ -136,59 +161,128 @@ async function loadDividends(base, symbol, start, end){
   divBox.innerHTML = "";
   try{
     const rows = await fetchJSON(`${base}/api/public/dividends?symbol=${encodeURIComponent(symbol)}&start=${start}&end=${end}`);
-    if(!rows.length){
-      divBox.innerHTML = `<tr><td class="px-3 py-2" colspan="2">無資料</td></tr>`;
-      return;
-    }
-    divBox.innerHTML = rows.map(r=>`<tr class="border-b border-slate-100">
-      <td class="px-3 py-2">${r.date}</td>
-      <td class="px-3 py-2">${r.cash}</td>
-    </tr>`).join("");
+    if(!rows.length){ divBox.innerHTML = `<tr><td class="px-3 py-2" colspan="2">無資料</td></tr>`; return; }
+    divBox.innerHTML = rows.map(r=>`<tr class="border-b border-slate-100 dark:border-slate-800">
+      <td class="px-3 py-2">${r.date}</td><td class="px-3 py-2">${r.cash}</td></tr>`).join("");
+    return rows;
   }catch(e){
     divBox.innerHTML = `<tr><td class="px-3 py-2 text-red-600" colspan="2">${e.message}</td></tr>`;
+    return [];
   }
 }
 
-async function loadOHLCV(base, symbol, start, end, useAdj){
+async function loadOHLCV(base, symbol, start, end){
   const url = `${base}/api/public/ohlcv?symbol=${encodeURIComponent(symbol)}&start=${start}&end=${end}&limit=20000`;
   const data = await fetchJSON(url);
-  const points = data.filter(x=>x.date && (useAdj ? x.adj_close!=null : x.close!=null))
-                     .map(x=>({x:new Date(x.date), y: useAdj ? x.adj_close : x.close }));
-  if(!chart){
-    const ctx = document.getElementById("priceChart").getContext("2d");
-    chart = new Chart(ctx, {
-      type: "line",
-      data: { datasets: [{ label: symbol, data: points, tension: 0.2, pointRadius: 0 }] },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-          x: { type: "time", time: { unit: "month" } },
-          y: { beginAtZero: false }
-        },
-        plugins: { legend: { display: true } }
-      }
-    });
-  }else{
-    chart.data.datasets = [{ label: symbol, data: points, tension: 0.2, pointRadius: 0 }];
-    chart.update();
-  }
+  return data.filter(x=>x.date && (x.adj_close!=null || x.close!=null));
 }
+
+function makeChart(ctx){
+  const dark = document.documentElement.classList.contains("dark");
+  return new Chart(ctx, {
+    type: "line",
+    data: { datasets: [] },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: { type: "time", time: { unit: "month" },
+             ticks: { color: dark ? "#94a3b8" : "#475569" },
+             grid: { color: dark ? "rgba(148,163,184,0.15)" : "rgba(100,116,139,0.15)" } },
+        y: { beginAtZero: false,
+             ticks: { color: dark ? "#94a3b8" : "#475569" },
+             grid: { color: dark ? "rgba(148,163,184,0.15)" : "rgba(100,116,139,0.15)" } },
+      },
+      plugins: {
+        legend: { labels: { color: dark ? "#e2e8f0" : "#0f172a" } },
+        tooltip: {
+          mode: "nearest",
+          intersect: false,
+          callbacks: {
+            label: (ctx)=> `${ctx.dataset.label}: ${ctx.parsed.y}`
+          }
+        }
+      },
+      elements: { point: { radius: 0 } }
+    }
+  });
+}
+
+function rebuildScalesColors(chart){
+  const dark = document.documentElement.classList.contains("dark");
+  const scx = chart.options.scales.x, scy = chart.options.scales.y;
+  scx.ticks.color = scy.ticks.color = dark ? "#94a3b8" : "#475569";
+  scx.grid.color = scy.grid.color = dark ? "rgba(148,163,184,0.15)" : "rgba(100,116,139,0.15)";
+  chart.options.plugins.legend.labels.color = dark ? "#e2e8f0" : "#0f172a";
+  chart.update();
+}
+
+function buildDatasets(allSeries, useAdj, showDiv){
+  const datasets = [];
+  allSeries.forEach((serie, idx)=>{
+    const color = palette[idx % palette.length];
+    const points = serie.rows.map(x=>({x: new Date(x.date), y: useAdj ? x.adj_close ?? x.close : x.close ?? x.adj_close})).filter(p=>p.y!=null);
+    datasets.push({
+      label: serie.symbol,
+      data: points,
+      borderColor: color,
+      backgroundColor: color,
+      tension: 0.2
+    });
+    if(showDiv && serie.divs && serie.divs.length){
+      // 將股利標在收盤價位置（同日找不到就略過）
+      const priceByDate = new Map(serie.rows.map(r=>[r.date, (useAdj ? (r.adj_close ?? r.close) : (r.close ?? r.adj_close))]));
+      const divPts = [];
+      for(const d of serie.divs){
+        const y = priceByDate.get(d.date);
+        if(y!=null) divPts.push({x: new Date(d.date), y});
+      }
+      datasets.push({
+        label: serie.symbol + " dividends",
+        type: "scatter",
+        data: divPts,
+        pointRadius: 3,
+        pointHoverRadius: 5,
+        borderColor: color,
+        backgroundColor: color,
+        showLine: false
+      });
+    }
+  });
+  return datasets;
+}
+
+let chart;
 
 async function run(){
   const base = $("#apiBase").value.trim().replace(/\/$/,"");
-  const symbol = $("#symbol").value.trim();
+  const symbols = $("#symbols").value.split(",").map(s=>s.trim()).filter(Boolean);
   const start = $("#start").value;
   const end = $("#end").value;
   const useAdj = $("#useAdj").checked;
+  const showDiv = $("#showDiv").checked;
 
   $("#status").textContent = "Loading...";
   try{
-    await Promise.all([
-      loadOHLCV(base, symbol, start, end, useAdj),
-      loadDividends(base, symbol, start, end),
-      loadInfo(base, symbol)
-    ]);
+    const allSeries = [];
+    for(const sym of symbols){
+      const rows = await loadOHLCV(base, sym, start, end);
+      let divs = [];
+      try{ divs = await fetchJSON(`${base}/api/public/dividends?symbol=${encodeURIComponent(sym)}&start=${start}&end=${end}`); }catch(e){}
+      allSeries.push({ symbol: sym, rows, divs });
+    }
+
+    // 基本資訊顯示第一檔
+    if(symbols.length){
+      loadInfo(base, symbols[0]);
+      loadDividends(base, symbols[0], start, end);
+    }
+
+    const ctx = document.getElementById("priceChart").getContext("2d");
+    if(!chart){ chart = makeChart(ctx); }
+    chart.data.datasets = buildDatasets(allSeries, useAdj, showDiv);
+    chart.update();
+
     $("#status").textContent = "OK";
   }catch(e){
     console.error(e);
@@ -202,19 +296,25 @@ async function loadUniverse(market){
   try{
     const js = await fetchJSON(`${base}/api/public/universe?market=${encodeURIComponent(market)}`);
     if(js.symbols && js.symbols.length){
-      $("#symbol").value = js.symbols[0];
+      $("#symbols").value = js.symbols.slice(0,3).join(",");
       run();
     }
-  }catch(e){
-    console.error(e);
-  }
+  }catch(e){ console.error(e); }
 }
 
 document.addEventListener("DOMContentLoaded", ()=>{
+  document.getElementById("builtAt").textContent = new Date().toISOString();
   setDefaults();
   $("#btnFetch").addEventListener("click", run);
   $("#btnTW").addEventListener("click", ()=>loadUniverse("ETF_TW"));
   $("#btnUS").addEventListener("click", ()=>loadUniverse("ETF_US"));
+  $("#toggleTheme").addEventListener("click", ()=>{
+    const root = document.documentElement;
+    const toDark = !root.classList.contains("dark");
+    root.classList.toggle("dark", toDark);
+    localStorage.setItem('theme', toDark ? 'dark' : 'light');
+    if(chart) rebuildScalesColors(chart);
+  });
 });
 </script>
 </body>
