@@ -1,13 +1,9 @@
 from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
-import os
-
 from public_api import router as public_router
 
-app = FastAPI(title="Public Market Data API", version="0.4.0")
+app = FastAPI(title="Public Market Data API (no-pandas)", version="0.1.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -17,19 +13,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# API routes
-app.include_router(public_router)
-
-# Mount static UI
-app.mount("/static", StaticFiles(directory="static"), name="static")
-
-@app.get("/")
-def index_page():
-    return FileResponse(os.path.join("static", "index.html"))
-
 @app.get("/health")
 def health():
     return {"ok": True}
+
+app.include_router(public_router)
 
 if __name__ == "__main__":
     import uvicorn

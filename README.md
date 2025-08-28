@@ -1,9 +1,18 @@
-# Public API + UI (FastAPI + StaticFiles)
+# Public Market Data API (No Pandas / No yfinance)
 
-此專案將 API 與 UI 整合：
-- `/` 直接回傳 static/index.html
-- `/static/*` 提供靜態檔
-- `/api/public/*` 為 API 路徑
-- `/docs` 提供互動 Swagger
+This version avoids pandas & yfinance by calling Yahoo's public chart/quoteSummary endpoints directly.
+- ✅ Works on Python 3.11 and 3.13 (no native compilation)
+- Endpoints: `/api/public/ohlcv`, `/dividends`, `/splits`, `/info`, `/universe`
 
-建置時間：2025-08-28T06:07:49.670493Z
+## Deploy on Render
+- Recommended: **Blueprint** → points to `render.yaml`
+- Or create **Web Service** and use:
+  - Build: `pip install --upgrade pip wheel setuptools && pip install -r requirements.txt`
+  - Start: `uvicorn main:app --host 0.0.0.0 --port $PORT`
+  - (runtime.txt is still set to 3.11.9, but this build works on 3.13 too.)
+
+## Local
+```
+pip install -r requirements.txt
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
+```
