@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: public-api
+    name: public-api-no-pandas
     env: python
     plan: free
     pythonVersion: 3.11.9

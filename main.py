@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from public_api import router as public_router
 
-app = FastAPI(title="Public Market Data API", version="0.3.1")
+app = FastAPI(title="Public Market Data API (no-pandas)", version="0.1.0")
 
 app.add_middleware(
     CORSMiddleware,
