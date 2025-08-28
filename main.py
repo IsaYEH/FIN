@@ -5,6 +5,22 @@ from public_api import router as public_router
 
 app = FastAPI(title="Public Market Data API (no-pandas)", version="0.1.0")
 
+@app.get("/")
+def index():
+    return {
+        "message": "Public Market Data API is running.",
+        "try": [
+            "/health",
+            "/docs",
+            "/api/public/ohlcv?symbol=2330.TW&start=2020-01-01&end=2025-08-01",
+            "/api/public/dividends?symbol=VYM&start=2018-01-01",
+            "/api/public/splits?symbol=AAPL&start=2010-01-01",
+            "/api/public/info?symbol=0056.TW",
+            "/api/public/universe?market=ETF_US"
+        ]
+    }
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
